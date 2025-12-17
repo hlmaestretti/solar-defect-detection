@@ -1,0 +1,14 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ml-model-service
+spec:
+  template:
+    spec:
+      containers:
+        - image: gcr.io/PROJECT_ID/IMAGE_NAME
+          env:
+            - name: MODEL_NAME
+              value: example_model
+            - name: MODEL_STAGE
+              value: Production

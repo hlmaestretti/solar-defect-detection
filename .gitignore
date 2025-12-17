@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+mlruns/
+mlflow_backend/backend.db
+data/
+models/
+.env
+.env.example
+/.github/

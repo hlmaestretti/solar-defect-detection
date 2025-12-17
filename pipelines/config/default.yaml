@@ -1,0 +1,17 @@
+data:
+  input_path: "data/raw/data.csv"
+  target_column: "target"
+
+preprocessing:
+  test_size: 0.2
+  scaling: true
+
+training:
+  framework: "sklearn"    # options: sklearn, pytorch
+  model_type: "linear_regression"  # or: "mlp"
+  random_state: 42
+  epochs: 5                # PyTorch-only
+  lr: 0.001               # PyTorch-only
+
+logging:
+  experiment_name: "template_experiment"
