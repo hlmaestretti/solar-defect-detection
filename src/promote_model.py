@@ -2,8 +2,8 @@ import mlflow
 from mlflow.tracking import MlflowClient
 
 
-MODEL_NAME = "example_model"
-METRIC_NAME = "mse"
+MODEL_NAME = "el_defect_classifier"
+METRIC_NAME = "val_macro_recall"
 
 
 def get_latest_run_metric(experiment_name):
@@ -26,19 +26,26 @@ def get_latest_run_metric(experiment_name):
     metric = run.data.metrics.get(METRIC_NAME)
 
     if metric is None:
-        raise ValueError(f"Metric '{METRIC_NAME}' not found in latest run")
+        raise ValueError(
+            f"Metric '{METRIC_NAME}' not found in latest run"
+        )
 
     return run.info.run_id, metric
 
 
 def get_production_metric(client):
     try:
-        versions = client.get_latest_versions(MODEL_NAME, stages=["Production"])
+        versions = client.get_latest_versions(
+            MODEL_NAME,
+            stages=["Production"]
+        )
         if not versions:
             return None
+
         prod_run_id = versions[0].run_id
         run = client.get_run(prod_run_id)
         return run.data.metrics.get(METRIC_NAME)
+
     except Exception:
         return None
 
@@ -52,7 +59,8 @@ def promote_if_better(experiment_name):
     print(f"New model {METRIC_NAME}: {new_metric}")
     print(f"Production model {METRIC_NAME}: {prod_metric}")
 
-    if prod_metric is None or new_metric < prod_metric:
+    # Higher recall is better
+    if prod_metric is None or new_metric > prod_metric:
         print("Promoting model to Staging")
 
         mlflow.register_model(
@@ -60,13 +68,18 @@ def promote_if_better(experiment_name):
             name=MODEL_NAME,
         )
 
-        latest_versions = client.get_latest_versions(MODEL_NAME, stages=["None"])
+        latest_versions = client.get_latest_versions(
+            MODEL_NAME,
+            stages=["None"]
+        )
+
         client.transition_model_version_stage(
             name=MODEL_NAME,
             version=latest_versions[-1].version,
             stage="Staging",
             archive_existing_versions=False,
         )
+
     else:
         print("Model not promoted")
 

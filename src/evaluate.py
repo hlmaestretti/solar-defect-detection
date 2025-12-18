@@ -1,30 +1,64 @@
-import mlflow
 import torch
-from sklearn.metrics import mean_squared_error, r2_score
+import mlflow
+import yaml
+from pathlib import Path
+from sklearn.metrics import recall_score
 
 
-# If using Sklearn, delete the pytorch model and use this instead
-def evaluate_model(model, X_test, y_test):
-    preds = model.predict(X_test)
+# Load defect labels 
+LABELS_PATH = Path("src/config/defect_labels.yaml")
 
-    mse = mean_squared_error(y_test, preds)
-    r2 = r2_score(y_test, preds)
-
-    mlflow.log_metric("mse", mse)
-    mlflow.log_metric("r2", r2)
-
-    return {"mse": mse, "r2": r2}
+with open(LABELS_PATH, "r") as f:
+    DEFECT_LABELS = yaml.safe_load(f)["labels"]
 
 
-# If using PyTorch, delete the sklearn model and use this instead
-def evaluate_model(model, X_test, y_test):
+# Evaluation
+def evaluate_model(model, val_loader, config):
+    """
+    Evaluate a multi-label EL defect classification model.
+    Computes per-class recall and macro recall.
+    """
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
+    model.eval()
+
+    y_true = []
+    y_pred = []
+
     with torch.no_grad():
-        preds = model(X_test)
+        for images, labels in val_loader:
+            images = images.to(device)
+            labels = labels.to(device)
 
-    mse = ((preds - y_test) ** 2).mean().item()
-    r2 = 1 - mse / y_test.var().item()
+            logits = model(images)
+            probs = torch.sigmoid(logits)
+            preds = (probs > 0.5).int()
 
-    mlflow.log_metric("mse", mse)
-    mlflow.log_metric("r2", r2)
+            y_true.extend(labels.cpu().numpy())
+            y_pred.extend(preds.cpu().numpy())
 
-    return {"mse": mse, "r2": r2}
+    # Metrics
+    per_class_recall = recall_score(
+        y_true,
+        y_pred,
+        average=None,
+        zero_division=0,
+    )
+
+    macro_recall = recall_score(
+        y_true,
+        y_pred,
+        average="macro",
+        zero_division=0,
+    )
+
+    # MLflow logging
+    mlflow.log_metric("val_macro_recall", macro_recall)
+
+    for label, recall in zip(DEFECT_LABELS, per_class_recall):
+        mlflow.log_metric(f"val_recall_{label}", recall)
+
+    return {
+        "macro_recall": macro_recall,
+        "per_class_recall": dict(zip(DEFECT_LABELS, per_class_recall)),
+    }

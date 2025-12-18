@@ -1,0 +1,18 @@
+training:
+  num_labels: 12
+  epochs: 100
+  lr: 0.001
+  weight_decay: 0.0001
+
+  # CNN architecture
+  blocks: 3
+  init_channels: 32
+  kernel_size: 3
+  stride: 1
+  padding: 1
+
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+  
