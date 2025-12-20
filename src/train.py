@@ -83,8 +83,19 @@ def train_model(train_loader, val_loader, config):
         weight_decay=weight_decay,
     )
 
-    criterion = nn.BCEWithLogitsLoss()
+    class_weights = cfg.get("class_weights")
 
+    if class_weights is not None:
+        pos_weight = torch.tensor(class_weights, device=device, dtype=torch.float32)
+
+        # Clamp extremely large weights
+        max_w = cfg.get("max_pos_weight", 50.0)
+        pos_weight = torch.clamp(pos_weight, max=max_w)
+
+        criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
+    else:
+        criterion = nn.BCEWithLogitsLoss()
+        
     # MLflow params
     mlflow.log_params({
         "model_type": "ELDefectCNN",
