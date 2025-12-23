@@ -1,3 +1,19 @@
+'''
+Evaluation utilities for the EL defect multi-label classifier.
+
+Responsibilities:
+- Run inference on the validation loader without gradient tracking
+- Convert logits to probabilities and compute multi-label predictions
+- Compute and log:
+  - validation macro recall 
+  - per-class validation recall 
+- Return a structured metric summary for downstream use
+
+Notes:
+- Ultra-rare classes may show zero recall due to insufficient data
+
+'''
+
 import torch
 import mlflow
 import yaml

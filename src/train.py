@@ -1,3 +1,17 @@
+'''
+Model definition and training loop for EL defect multi-label classification.
+
+Responsibilities:
+- Define ELDefectCNN
+- Train the model using BCEWithLogitsLoss and AdamW 
+- Track train/validation loss and macro recall per epoch and log metrics/params to MLflow
+- Log the final model artifact to MLflow under the current run
+
+Notes:
+- The model is trained from scratch
+- Class imbalance handling (e.g., weighted loss) is configured via the pipeline config
+'''
+
 import torch
 import torch.nn as nn
 import mlflow

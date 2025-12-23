@@ -1,3 +1,17 @@
+'''
+Model registry promotion logic for MLflow.
+
+Responsibilities:
+- Identify the most recent MLflow run in a given experiment
+- Read the promotion metric from that run
+- Compare against the current Production model's metric 
+- If the new model is better, register the run's model artifact and transition it to Staging
+
+Notes:
+- This script assumes MLflow tracking and model registry are configured for the environment.
+
+'''
+
 import mlflow
 from mlflow.tracking import MlflowClient
 

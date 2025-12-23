@@ -1,3 +1,18 @@
+'''
+Preprocessing for the EL defect multi-label classification pipeline.
+
+Responsibilities:
+- Load defect label ordering from src/config/defect_labels.yaml
+- Parse Pascal VOC XML annotations to build multi-hot label vectors
+- Build a PyTorch Dataset that pairs grayscale EL images with their multi-label targets
+- Create deterministic train/validation splits and return DataLoaders
+
+Notes:
+- This project’s dataset contains only defective samples; there is no "no defect" class.
+- Output tensors are shaped as such: image -> (1, 224, 224), labels -> (12,).
+
+'''
+
 import xml.etree.ElementTree as ET
 from pathlib import Path
 import yaml
