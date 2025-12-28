@@ -1,137 +1,74 @@
-# MLOps Project Template
+# Solar Defect Detection (EL Images)
 
-This repository provides a reusable, cloud-agnostic template for building 
-production-ready machine learning systems.
+Multi-label electroluminescence (EL) defect classification for solar modules. A custom PyTorch pipeline trains from scratch, logs to MLflow, and can promote improved models via the MLflow Model Registry.
 
+## Project status
+- End-to-end training pipeline (`pipelines/run_pipeline.py`) that logs configs, params, metrics, and the trained model to MLflow.
+- Deterministic train/validation split with torchvision transforms and per-run dataset stats.
+- Custom CNN (ELDefectCNN) optimized for grayscale EL imagery; uses BCEWithLogitsLoss, AdamW, optional class weights, and early stopping on macro recall.
+- Evaluation computes macro recall plus per-class recall; promotion script compares `val_macro_recall` against Production.
 
-## Features
-- Modular data pipelines
-- MLflow integration (pluggable backend)
-- CI/CD templates
-- Cloud deployment templates
-- Monitoring + drift detection structure
-- Reproducible configuration pattern
+## Dataset and labels
+- Input: grayscale EL images with Pascal VOC XML annotations (one XML per image). The dataset only contains defective samples; there is no "no defect" class.
+- Label order is defined in `src/config/defect_labels.yaml`:
+  finger, crack, black_core, thick_line, horizontal_dislocation, short_circuit, vertical_dislocation, star_crack, printing_error, corner, fragment, scratch.
+- Images are converted to shape `(1, 224, 224)`; outputs are 12 probabilities (sigmoid) for multi-label prediction.
 
-## Architecture Overview
+## Key files
+- `pipelines/run_pipeline.py`: orchestrates preprocessing -> training -> evaluation with MLflow logging.
+- `pipelines/config/model_config.yaml`: data paths and hyperparameters (CNN depth, batch size, epochs, class weights, early stopping).
+- `src/preprocess.py`: builds the dataset/dataloaders, applies transforms, and logs dataset metadata.
+- `src/train.py`: ELDefectCNN definition and training loop with macro-recall-driven early stopping; logs the model via `mlflow.pytorch.log_model`.
+- `src/evaluate.py`: computes macro and per-class recall and logs metrics to MLflow.
+- `src/predict.py`: loads a model from MLflow and runs single-image inference with matching preprocessing.
+- `src/promote_model.py`: promotes the latest run to Staging if `val_macro_recall` improves the Production model for `el_defect_classifier`.
+- `src/utils/compute_class_weights.py`: helper script to derive tempered class weights from defect counts.
+- `docs/training.md`: modeling rationale, imbalance handling, and experiment notes.
+- `docs/mltflow_setup.md`: how to configure MLflow tracking and artifact storage.
 
-This project is designed as a reusable MLOps platform template, separating
-concerns across training, promotion, serving, CI/CD, and monitoring.
+## Setup
+1. Python environment: create/activate a virtualenv.
+2. Install dependencies: `pip install -r requirements.txt`.
+3. Configure MLflow (tracking URI, artifact store) via `.env` or environment variables; see `docs/mltflow_setup.md`.
+4. Place data to match the default config:
+   - Images: `data/dataset/JPEGImages/*.jpg`
+   - Annotations: `data/dataset/Annotations/*.xml` (filenames match images)
 
-High-level flow:
+## Run training
+```
+python pipelines/run_pipeline.py --config pipelines/config/model_config.yaml
+```
+What happens:
+- Loads config and logs it as an artifact.
+- Builds train/val DataLoaders with the specified `val_split` and `split_seed`.
+- Trains ELDefectCNN for `training.epochs` with AdamW, BCEWithLogitsLoss, and optional class weights (clamped by `max_pos_weight`).
+- Logs per-epoch train/val loss and macro recall; evaluation logs per-class recall.
+- Saves the trained model artifact to MLflow.
 
-1. Training pipeline ingests data and logs runs to MLflow
-2. Evaluation metrics are recorded per run
-3. Promotion logic compares metrics and manages model stages
-4. FastAPI service loads models from the MLflow registry
-5. CI/CD workflows orchestrate training and deployment
-6. Monitoring detects drift and triggers retraining externally
+## Configuration highlights (`pipelines/config/model_config.yaml`)
+- `data.images_dir` / `data.annotations_dir`: JPEG + XML locations.
+- `training.class_weights`: tuned square-root weights for imbalance; adjust as you add data.
+- Early stopping: `training.early_stopping.enabled`, `patience`, `min_delta` (uses validation macro recall).
+- CNN: `blocks`, `init_channels`, `kernel_size`, `stride`, `padding`.
+- Promotion metric: `val_macro_recall` (used across training, evaluation, and promotion).
 
-## Framework Selection Philosophy (Template Design)
+## Inference
+```
+from src.predict import load_model, predict_image
 
-This template is intentionally designed to be edited, not dynamically configured.
+model, device = load_model("models:/el_defect_classifier/Staging")
+probs = predict_image(model, device, "path/to/image.jpg")
+print(probs)  # {label: probability}
+```
+Probabilities are returned for all classes; apply thresholds per class as needed.
 
-For stages that are framework-specific (preprocessing, training, evaluation),
-you may see multiple implementations of the same function (e.g., scikit-learn
-and PyTorch) defined in the same file with identical function names.
+## Model promotion
+```
+python src/promote_model.py
+```
+Compares the latest run in the target experiment to the current Production model using `val_macro_recall`. If better, registers the run artifact and transitions it to Staging. Ensure MLflow tracking/registry is configured and `MODEL_NAME` matches `el_defect_classifier` if you customize it.
 
-### Why this design?
-
-- This repository is a starter template, not a runtime framework.
-- Real projects typically commit to one ML framework per service.
-- Deleting unused code is clearer than maintaining runtime branching logic.
-- The pipeline runner remains framework-agnostic and stable.
-
-
-## Model Lifecycle
-
-This project uses the MLflow Model Registry with the following lifecycle:
-
-- **None** — newly trained models
-- **Staging** — models that pass evaluation gates
-- **Production** — models actively deployed
-
-Model promotion is handled by a dedicated script (`src/promote_model.py`)
-and is intentionally decoupled from training.
-
-This allows:
-- explicit promotion rules
-- CI/CD-based gating
-- safe rollback
-- human-in-the-loop approvals
-
-
-## Deployment (Template)
-
-This repository includes a FastAPI + Cloud Run deployment scaffold.
-
-The deployment is intentionally not runnable without project-specific
-configuration. Before deploying, users must:
-
-- specialize preprocessing, training, and evaluation code
-- configure MLflow tracking and registry
-- set MODEL_NAME and MODEL_STAGE environment variables
-- build and push a container image
-
-The provided Dockerfile and Cloud Run YAML define the expected
-deployment contract, not a turn-key service.
-
-
-## CI/CD (Template)
-
-This repository includes skeleton GitHub Actions workflows that document the
-intended CI/CD lifecycle:
-
-- Continuous Integration:
-  - run tests
-  - train models
-  - evaluate metrics
-  - optionally promote models
-
-- Continuous Deployment:
-  - build a FastAPI service container
-  - deploy to Cloud Run
-
-
-## Monitoring & Drift Detection (Template)
-
-This template includes scaffolding for monitoring and drift detection.
-
-Drift detection is designed as a standalone process that:
-- compares reference and current data
-- produces a structured report
-- triggers retraining externally if thresholds are exceeded
-
-Monitoring is intentionally decoupled from training and deployment.
-
-
-
-## How to Use This Template
-
-1. Clone the repo:
-   git clone https://github.com/hlmaestretti/mlops_template
-
-2. Copy `.env.example` → `.env` and fill in your environment:
-   - MLflow tracking server
-   - Artifact store URI
-   - Credentials
-
-3. Decide which framework you will use (e.g., scikit-learn or PyTorch).
-4. In each stage file (`preprocess.py`, `train.py`, `evaluate.py`):
-   - Delete the unused implementation.
-   - Keep the single function matching your framework.
-
-5. Follow `docs/mlflow_setup.md` to configure MLflow for THIS project.
-
-6. Run a test pipeline:
-   python pipelines/run_pipeline.py
-
-7. Deploy using:
-   - FastAPI
-   - Docker
-   - Cloud Run or AWS ECS
-
-
-
-
-
-
+## Notes and limitations
+- The dataset has no defect-free images; the model reports which defects are present, not whether a module is healthy.
+- Ultra-rare classes (printing_error, corner, fragment, scratch) may have low recall without more data or class-specific thresholds.
+- For modeling decisions, imbalance handling, and future work, see `docs/training.md`.
