@@ -1,0 +1,24 @@
+artifact_path: file:C:/Users/wwwhu/OneDrive/Desktop/practice ML/Solar Panel Defect
+  Detection/mlruns/1/models/m-dbe6c7d0bb8244f4babc32db1b4362f4/artifacts
+flavors:
+  python_function:
+    config:
+      device: null
+    data: data
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.pytorch
+    pickle_module_name: mlflow.pytorch.pickle_module
+    python_version: 3.13.1
+  pytorch:
+    code: null
+    model_data: data
+    pytorch_version: 2.9.1+cpu
+mlflow_version: 3.7.0
+model_id: m-dbe6c7d0bb8244f4babc32db1b4362f4
+model_size_bytes: 1584669
+model_uuid: m-dbe6c7d0bb8244f4babc32db1b4362f4
+prompts: null
+run_id: 7a4df0f41bd448578f4a43badcebaa3e
+utc_time_created: '2025-12-20 16:25:17.400993'
