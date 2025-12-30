@@ -99,4 +99,4 @@ def promote_if_better(experiment_name):
 
 
 if __name__ == "__main__":
-    promote_if_better(experiment_name="template_experiment")
+    promote_if_better(experiment_name="el_defect_detection")
