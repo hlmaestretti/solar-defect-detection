@@ -1,3 +1,17 @@
+'''
+FastAPI application for Solar Panel EL Defect Detection.
+
+
+Endpoints:
+- GET /health
+  Simple liveness check to confirm the service is running.
+
+- POST /predict
+  Accepts a single EL image upload and returns:
+    - per-defect probabilities
+    - per-defect boolean predictions using class-specific thresholds
+'''
+
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from PIL import Image
 import io

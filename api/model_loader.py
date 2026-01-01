@@ -1,3 +1,13 @@
+'''
+Model loading utilities for the EL defect detection service.
+
+Responsibilities:
+- Load the trained PyTorch model from the MLflow Model Registry using a
+  registry URI 
+- Move the model to the appropriate device (CPU or CUDA)
+- Set the model to evaluation mode.
+'''
+
 import mlflow.pytorch
 import torch
 
