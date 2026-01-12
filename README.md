@@ -1,12 +1,17 @@
 # Solar Defect Detection (EL Images)
 
-Multi-label electroluminescence (EL) defect classification for solar modules. A custom PyTorch pipeline trains from scratch, logs to MLflow, and can promote improved models via the MLflow Model Registry.
+Multi-label electroluminescence (EL) defect classification for solar modules. A custom PyTorch pipeline trains from scratch, logs to MLflow, and supports model promotion via the MLflow Model Registry.
 
 ## Project status
+
+-- Project on hold while in School --
+
 - End-to-end training pipeline (`pipelines/run_pipeline.py`) that logs configs, params, metrics, and the trained model to MLflow.
 - Deterministic train/validation split with torchvision transforms and per-run dataset stats.
 - Custom CNN (ELDefectCNN) optimized for grayscale EL imagery; uses BCEWithLogitsLoss, AdamW, optional class weights, and early stopping on macro recall.
 - Evaluation computes macro recall plus per-class recall; promotion script compares `val_macro_recall` against Production.
+- Inference utilities for single-image predictions plus a FastAPI service that accepts image uploads.
+- Monitoring and deployment directories are scaffolded for drift detection and containerized serving.
 
 ## Dataset and labels
 - Input: grayscale EL images with Pascal VOC XML annotations (one XML per image). The dataset only contains defective samples; there is no "no defect" class.
@@ -14,7 +19,7 @@ Multi-label electroluminescence (EL) defect classification for solar modules. A 
   finger, crack, black_core, thick_line, horizontal_dislocation, short_circuit, vertical_dislocation, star_crack, printing_error, corner, fragment, scratch.
 - Images are converted to shape `(1, 224, 224)`; outputs are 12 probabilities (sigmoid) for multi-label prediction.
 
-## Key files
+## Repository layout
 - `pipelines/run_pipeline.py`: orchestrates preprocessing -> training -> evaluation with MLflow logging.
 - `pipelines/config/model_config.yaml`: data paths and hyperparameters (CNN depth, batch size, epochs, class weights, early stopping).
 - `src/preprocess.py`: builds the dataset/dataloaders, applies transforms, and logs dataset metadata.
@@ -23,6 +28,11 @@ Multi-label electroluminescence (EL) defect classification for solar modules. A 
 - `src/predict.py`: loads a model from MLflow and runs single-image inference with matching preprocessing.
 - `src/promote_model.py`: promotes the latest run to Staging if `val_macro_recall` improves the Production model for `el_defect_classifier`.
 - `src/utils/compute_class_weights.py`: helper script to derive tempered class weights from defect counts.
+- `api/app.py`: FastAPI image upload endpoint that returns probabilities + thresholded predictions.
+- `api/model_loader.py`: loads the Production model from MLflow.
+- `api/schemas.py`: response schema for the prediction endpoint.
+- `monitoring/`: drift detection scaffolding and input schema template.
+- `infra/`: container and Cloud Run templates for serving.
 - `docs/training.md`: modeling rationale, imbalance handling, and experiment notes.
 - `docs/mltflow_setup.md`: how to configure MLflow tracking and artifact storage.
 
@@ -52,7 +62,7 @@ What happens:
 - CNN: `blocks`, `init_channels`, `kernel_size`, `stride`, `padding`.
 - Promotion metric: `val_macro_recall` (used across training, evaluation, and promotion).
 
-## Inference
+## Inference (Python)
 ```
 from src.predict import load_model, predict_image
 
@@ -62,13 +72,35 @@ print(probs)  # {label: probability}
 ```
 Probabilities are returned for all classes; apply thresholds per class as needed.
 
+## Inference API (FastAPI)
+```
+uvicorn api.app:app --reload
+```
+The `/predict` endpoint accepts a single image upload and returns per-class probabilities plus boolean predictions. The crack class uses a lower default threshold (0.35); all others default to 0.5. The service expects MLflow tracking/registry to be configured so it can load `models:/el_defect_classifier/Production`.
+
 ## Model promotion
 ```
 python src/promote_model.py
 ```
 Compares the latest run in the target experiment to the current Production model using `val_macro_recall`. If better, registers the run artifact and transitions it to Staging. Ensure MLflow tracking/registry is configured and `MODEL_NAME` matches `el_defect_classifier` if you customize it.
 
+## Monitoring & deployment
+- `monitoring/` contains drift detection scaffolding and an EL image feature schema.
+- `infra/` contains a Dockerfile and Cloud Run manifest for serving; update as needed for your runtime.
+
+## Work in progress
+- Drift detection is implemented as a lightweight baseline (summary-statistics + z-score); tune thresholds and validate against real production data.
+- The monitoring input schema is a starting point based on grayscale intensity stats; expand it if you add richer signals.
+- Deployment manifests are templates and may need environment-specific tuning (registry, auth, resource limits).
+
 ## Notes and limitations
 - The dataset has no defect-free images; the model reports which defects are present, not whether a module is healthy.
 - Ultra-rare classes (printing_error, corner, fragment, scratch) may have low recall without more data or class-specific thresholds.
-- For modeling decisions, imbalance handling, and future work, see `docs/training.md`.
+- For modeling decisions, imbalance handling, and experimental context, see `docs/training.md`.
+
+## Future Work
+- Add defect-free imagery and a binary healthy/defective gate before multi-label prediction.
+- Implement class-specific threshold tuning and calibration for production operating points.
+- Complete drift detection using Evidently or a custom statistic and automate retraining triggers.
+- Consolidate API + infra templates to a single serving path aligned with the EL model.
+- Expand data coverage for ultra-rare defects and validate with cross-validation or a held-out test set.

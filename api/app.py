@@ -20,8 +20,8 @@ from torchvision import transforms
 import yaml
 from pathlib import Path
 
-from src.api.model_loader import load_model
-from src.api.schemas import PredictResponse
+from api.model_loader import load_model
+from api.schemas import PredictResponse
 
 
 # -------------------------------------------------

@@ -2,3 +2,9 @@ fastapi
 uvicorn
 mlflow
 pydantic
+python-multipart
+pillow
+pyyaml
+numpy
+torch
+torchvision

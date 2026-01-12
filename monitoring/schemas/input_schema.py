@@ -1,13 +1,17 @@
 version: 1
 
 features:
-  - name: feature_1
+  - name: mean_intensity
     type: float
-  - name: feature_2
+  - name: std_intensity
     type: float
-  - name: feature_3
+  - name: p10_intensity
+    type: float
+  - name: p50_intensity
+    type: float
+  - name: p90_intensity
     type: float
 
 target:
-  name: target
-  type: float
+  name: defect_labels
+  type: multi_label
